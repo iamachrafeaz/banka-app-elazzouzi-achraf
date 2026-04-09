@@ -4,7 +4,7 @@ export const initialAccounts = [
     label: 'Compte Courant',
     owner: 'Amira Benali',
     iban: 'MA64 0011 2000 0100 1395 8000 467',
-    balance: 12500.00,
+    balance: 7.00,
     type: 'courant',
     transactions: [
       {

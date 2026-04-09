@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList,
   TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform
@@ -9,13 +9,13 @@ import TransactionItem from '../components/TransactionItem';
 export default function AccountDetailScreen({ route, navigation, accounts, onDebit, onCredit }) {
   const { accountId } = route.params;
 
-  // Récupérer le compte depuis la prop accounts (pas les params — pourquoi ?)
   const account = accounts.find(a => a.id === accountId);
-  const isSufficiantBalance = account.balance == 0;
+  const isZeroBalance = account.balance == 0;
+  const isLowBalance = account.balance < 1000;
 
   const [amount, setAmount] = useState('');
   const [label, setLabel] = useState('');
-  const [mode, setMode] = useState(null); // 'debit' | 'credit' | null
+  const [mode, setMode] = useState(null);
 
   if (!account) {
     return <Text style={{ padding: 20 }}>Compte introuvable.</Text>;
@@ -24,7 +24,6 @@ export default function AccountDetailScreen({ route, navigation, accounts, onDeb
   const handleOperation = () => {
     const numAmount = parseFloat(amount);
 
-    // Validations
     if (!label.trim()) {
       Alert.alert('Champ manquant', 'Veuillez saisir un libellé.');
       return;
@@ -34,27 +33,32 @@ export default function AccountDetailScreen({ route, navigation, accounts, onDeb
       return;
     }
 
-    Alert.alert(
-      `Confirmer le ${mode === 'debit' ? 'Débit' : 'Crédit'}`,
-      `${numAmount.toLocaleString('fr-FR')} MAD — "${label}"`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Confirmer',
-          onPress: () => {
-            if (mode === 'debit') {
-              const success = onDebit(accountId, numAmount, label);
-              if (!success) {
-                handleInsufficientBalance();
-              }
+    const confirmTitle = mode === 'debit'
+      ? '↓ Confirmer le Débit'
+      : '↑ Confirmer le Crédit';
+
+    const confirmMessage = mode === 'debit'
+      ? `Vous allez débiter ${numAmount.toLocaleString('fr-FR')} MAD de votre compte.\nLibellé : "${label}"`
+      : `Vous allez créditer ${numAmount.toLocaleString('fr-FR')} MAD sur votre compte.\nLibellé : "${label}"`;
+
+    Alert.alert(confirmTitle, confirmMessage, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Confirmer',
+        onPress: () => {
+          if (mode === 'debit') {
+            const success = onDebit(accountId, numAmount, label);
+            if (!success) {
+              handleInsufficientBalance();
             }
-            else onCredit(accountId, numAmount, label);
-            setAmount('');
-            setLabel('');
-            setMode(null);
-          },
+          }
+          else onCredit(accountId, numAmount, label);
+          setAmount('');
+          setLabel('');
+          setMode(null);
         },
-      ]
+      },
+    ]
     );
   };
 
@@ -82,16 +86,21 @@ export default function AccountDetailScreen({ route, navigation, accounts, onDeb
             {/* Solde du compte */}
             <View style={styles.balanceBanner}>
               <Text style={styles.accountName}>{account.label}</Text>
-              <Text style={account.balance < 1000 ? styles.dangerBalance  : styles.balance}>
+              <Text style={isLowBalance ? styles.dangerBalance : styles.balance}>
                 {account.balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
               </Text>
+              {isLowBalance && (
+                <Text style={{ color: colors.danger, fontSize: 12, marginTop: 6 }}>
+                  ⚠️ Solde faible
+                </Text>
+              )}
             </View>
 
             {/* Boutons d'action */}
             <View style={styles.actionsRow}>
               <TouchableOpacity
-                disabled={isSufficiantBalance}
-                style={[styles.actionBtn, { backgroundColor: colors.danger, opacity: isSufficiantBalance ? 0.25 : 1 }]}
+                disabled={isZeroBalance}
+                style={[styles.actionBtn, { backgroundColor: colors.danger, opacity: isZeroBalance ? 0.25 : 1 }]}
                 onPress={() => setMode(mode === 'debit' ? null : 'debit')}
               >
                 <Text style={styles.actionBtnText}>↓ Débit</Text>
@@ -105,8 +114,8 @@ export default function AccountDetailScreen({ route, navigation, accounts, onDeb
               </TouchableOpacity>
 
               <TouchableOpacity
-                disabled={isSufficiantBalance}
-                style={[styles.actionBtn, { backgroundColor: colors.primary, opacity: isSufficiantBalance ? 0.25 : 1 }]}
+                disabled={isZeroBalance}
+                style={[styles.actionBtn, { backgroundColor: colors.primary, opacity: isZeroBalance ? 0.25 : 1 }]}
                 onPress={() => navigation.navigate('Transfer', { fromAccountId: accountId })}
               >
                 <Text style={styles.actionBtnText}>↗ Virement</Text>
