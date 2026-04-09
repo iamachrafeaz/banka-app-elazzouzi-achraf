@@ -34,10 +34,10 @@ banka-app-elazzouzi-achraf/
 npm install -g expo-cli
 
 # Cloner le project 
-git clone https://github.com/iamachrafeaz/banka-app-elazzouzi-achraf
+git clone https://github.com/iamachrafeaz/banka-app-el-azzouzi-achraf
 
 # Entrer dans le dossier
-cd banka-app-elazzouzi-achraf
+cd banka-app-el-azzouzi-achraf
 
 # Installer React Navigation
 npm install
@@ -48,4 +48,4 @@ npx expo start
 
 ## Screenshots
 
-![](./screenshots/Frame%2059.png)
+![](./screenshots/screenshot.png)
