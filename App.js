@@ -7,27 +7,27 @@ import { Text } from 'react-native';
 import { initialAccounts } from './src/data/accounts';
 import { colors } from './src/theme/colors';
 
-import DashboardScreen    from './src/screens/DashboardScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
 import AccountDetailScreen from './src/screens/AccountDetailScreen';
-import TransferScreen     from './src/screens/TransferScreen';
-import HistoryScreen      from './src/screens/HistoryScreen';
+import TransferScreen from './src/screens/TransferScreen';
+import HistoryScreen from './src/screens/HistoryScreen';
 
-const Tab   = createBottomTabNavigator();
+const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 // Stack imbriqué dans l'onglet "Comptes"
-function AccountsStack({ accounts, onDebit, onCredit, onTransfer }) {
+function AccountsStack({ accounts, onDebit, onCredit, onTransfer, resetAccounts }) {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle:      { backgroundColor: colors.primary },
-        headerTintColor:  '#fff',
+        headerStyle: { backgroundColor: colors.primary },
+        headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: '700' },
       }}
     >
       <Stack.Screen name="Dashboard" options={{ title: 'Mes Comptes' }}>
         {(props) => (
-          <DashboardScreen {...props} accounts={accounts} />
+          <DashboardScreen {...props} accounts={accounts} resetAccounts={resetAccounts} />
         )}
       </Stack.Screen>
 
@@ -61,45 +61,47 @@ export default function App() {
 
   // ─── Opération : Débit ──────────────────────────────────────────────────────
   const handleDebit = (accountId, amount, label) => {
-    setAccounts(prev =>
-      prev.map(acc => {
-        if (acc.id !== accountId) return acc;
+    const account = accounts.find(a => a.id === accountId);
 
-        // Règle métier : rejet si solde insuffisant
-        if (acc.balance < amount) return null; // signal d'échec
+    if (!account || account.balance < amount) {
+      return false;
+    }
 
-        const newTransaction = {
-          id:     'T' + Date.now(),
-          type:   'debit',
+    setAccounts(prev => prev.map(acc => {
+      if (acc.id !== accountId) return acc;
+
+      return {
+        ...acc,
+        balance: acc.balance - amount,
+        transactions: [{
+          id: 'T' + Date.now(),
+          type: 'debit',
           amount,
           label,
-          date:   new Date().toLocaleDateString('fr-FR'),
-        };
-        return {
-          ...acc,
-          balance:      acc.balance - amount,
-          transactions: [newTransaction, ...acc.transactions],
-        };
-      }).filter(Boolean) // retire null si rejet
-      // ⚠️ Ce filtre supprime le compte en cas d'erreur — à corriger (voir Tâche 2.1)
-    );
+          date: new Date().toLocaleDateString('fr-FR'),
+        }, ...acc.transactions],
+      };
+    }));
+
+    return true;
   };
 
   // ─── Opération : Crédit ─────────────────────────────────────────────────────
   const handleCredit = (accountId, amount, label) => {
+
     setAccounts(prev =>
       prev.map(acc => {
         if (acc.id !== accountId) return acc;
         const newTransaction = {
-          id:     'T' + Date.now(),
-          type:   'credit',
+          id: 'T' + Date.now(),
+          type: 'credit',
           amount,
           label,
-          date:   new Date().toLocaleDateString('fr-FR'),
+          date: new Date().toLocaleDateString('fr-FR'),
         };
         return {
           ...acc,
-          balance:      acc.balance + amount,
+          balance: acc.balance + amount,
           transactions: [newTransaction, ...acc.transactions],
         };
       })
@@ -108,19 +110,64 @@ export default function App() {
 
   // ─── Opération : Virement ───────────────────────────────────────────────────
   const handleTransfer = (fromId, toId, amount, label) => {
-    // À compléter à l'Étape 4
+    const account = accounts.find(a => a.id === fromId);
+
+    if (!account || account.balance < amount) {
+      return false;
+    }
+
+    setAccounts(prev => prev.map(
+      acc => {
+        if (acc.id == fromId) {
+
+          const newTransaction = {
+            id: 'T' + Date.now(),
+            type: 'virement_sortant',
+            amount,
+            label,
+            date: new Date().toLocaleDateString('fr-FR'),
+          };
+          return {
+            ...acc,
+            balance: acc.balance - amount,
+            transactions: [newTransaction, ...acc.transactions]
+          }
+        } else if (acc.id == toId) {
+          const newTransaction = {
+            id: 'T' + Date.now(),
+            type: 'virement_entrant',
+            amount,
+            label,
+            date: new Date().toLocaleDateString('fr-FR'),
+          };
+          return {
+            ...acc,
+            balance: acc.balance + amount,
+            transactions: [newTransaction, ...acc.transactions]
+          }
+        }
+        else {
+          return acc
+        }
+      }
+    ))
+    return true;
   };
+
+  const resetAccounts = () => {
+    setAccounts(initialAccounts)
+  }
 
   return (
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={{
-          tabBarActiveTintColor:   colors.primary,
+          tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textLight,
           tabBarStyle: {
             borderTopColor: colors.border,
-            height:         60,
-            paddingBottom:  6,
+            height: 60,
+            paddingBottom: 6,
           },
           headerShown: false,
         }}
@@ -135,6 +182,7 @@ export default function App() {
           {() => (
             <AccountsStack
               accounts={accounts}
+              resetAccounts={resetAccounts}
               onDebit={handleDebit}
               onCredit={handleCredit}
               onTransfer={handleTransfer}
@@ -148,8 +196,8 @@ export default function App() {
             tabBarLabel: 'Historique',
             tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📋</Text>,
             headerShown: true,
-            headerStyle:      { backgroundColor: colors.primary },
-            headerTintColor:  '#fff',
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#fff',
             headerTitleStyle: { fontWeight: '700' },
             title: 'Historique',
           }}

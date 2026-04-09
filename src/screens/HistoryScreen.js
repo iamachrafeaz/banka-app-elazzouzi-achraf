@@ -4,7 +4,11 @@ import { colors } from '../theme/colors';
 import TransactionItem from '../components/TransactionItem';
 
 export default function HistoryScreen({ accounts }) {
-  // Agréger toutes les transactions de tous les comptes
+  function parseDate(str) {
+    const [day, month, year] = str.split('/').map(Number);
+    return new Date(year, month - 1, day).getTime();
+  }
+
   const allTransactions = accounts
     .flatMap(acc =>
       acc.transactions.map(tx => ({
@@ -12,9 +16,11 @@ export default function HistoryScreen({ accounts }) {
         accountLabel: acc.label,
         uniqueKey: acc.id + '-' + tx.id,
       }))
-    )
-    // Tri par date décroissante (simpliste — les dates sont des strings ici)
-    .reverse();
+    ).sort((b, a) => {
+      const dateA = parseDate(a.date);
+      const dateB = parseDate(b.date);
+      return dateB - dateA;
+    });
 
   return (
     <View style={styles.container}>
@@ -37,15 +43,15 @@ export default function HistoryScreen({ accounts }) {
 }
 
 const styles = StyleSheet.create({
-  container:  { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
   accountTag: {
-    fontSize:         11,
-    color:            colors.textLight,
-    paddingHorizontal:16,
-    paddingTop:       10,
-    paddingBottom:    2,
-    textTransform:    'uppercase',
-    letterSpacing:    0.6,
+    fontSize: 11,
+    color: colors.textLight,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   empty: { padding: 30, textAlign: 'center', color: colors.textLight },
 });

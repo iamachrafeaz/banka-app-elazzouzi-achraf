@@ -11,10 +11,11 @@ export default function AccountDetailScreen({ route, navigation, accounts, onDeb
 
   // Récupérer le compte depuis la prop accounts (pas les params — pourquoi ?)
   const account = accounts.find(a => a.id === accountId);
+  const isSufficiantBalance = account.balance == 0;
 
-  const [amount, setAmount]   = useState('');
-  const [label,  setLabel]    = useState('');
-  const [mode,   setMode]     = useState(null); // 'debit' | 'credit' | null
+  const [amount, setAmount] = useState('');
+  const [label, setLabel] = useState('');
+  const [mode, setMode] = useState(null); // 'debit' | 'credit' | null
 
   if (!account) {
     return <Text style={{ padding: 20 }}>Compte introuvable.</Text>;
@@ -32,25 +33,22 @@ export default function AccountDetailScreen({ route, navigation, accounts, onDeb
       Alert.alert('Montant invalide', 'Veuillez saisir un montant positif.');
       return;
     }
-    if (mode === 'debit' && numAmount > account.balance) {
-      Alert.alert(
-        'Solde insuffisant',
-        `Votre solde est de${account.balance.toLocaleString('fr-FR')} MAD. Opération rejetée.`
-      );
-      return;
-    }
 
-    // Confirmation avant exécution
     Alert.alert(
-      `Confirmer le${mode === 'debit' ? 'Débit' : 'Crédit'}`,
+      `Confirmer le ${mode === 'debit' ? 'Débit' : 'Crédit'}`,
       `${numAmount.toLocaleString('fr-FR')} MAD — "${label}"`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Confirmer',
           onPress: () => {
-            if (mode === 'debit') onDebit(accountId, numAmount, label);
-            else                  onCredit(accountId, numAmount, label);
+            if (mode === 'debit') {
+              const success = onDebit(accountId, numAmount, label);
+              if (!success) {
+                handleInsufficientBalance();
+              }
+            }
+            else onCredit(accountId, numAmount, label);
             setAmount('');
             setLabel('');
             setMode(null);
@@ -59,6 +57,16 @@ export default function AccountDetailScreen({ route, navigation, accounts, onDeb
       ]
     );
   };
+
+
+
+  const handleInsufficientBalance = () => {
+    Alert.alert(
+      'Solde insuffisant',
+      `Votre solde est de ${account.balance.toLocaleString('fr-FR')} MAD. Opération rejetée.`
+    );
+    return;
+  }
 
   return (
     <KeyboardAvoidingView
@@ -74,7 +82,7 @@ export default function AccountDetailScreen({ route, navigation, accounts, onDeb
             {/* Solde du compte */}
             <View style={styles.balanceBanner}>
               <Text style={styles.accountName}>{account.label}</Text>
-              <Text style={styles.balance}>
+              <Text style={account.balance < 1000 ? styles.dangerBalance  : styles.balance}>
                 {account.balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
               </Text>
             </View>
@@ -82,7 +90,8 @@ export default function AccountDetailScreen({ route, navigation, accounts, onDeb
             {/* Boutons d'action */}
             <View style={styles.actionsRow}>
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: colors.danger }]}
+                disabled={isSufficiantBalance}
+                style={[styles.actionBtn, { backgroundColor: colors.danger, opacity: isSufficiantBalance ? 0.25 : 1 }]}
                 onPress={() => setMode(mode === 'debit' ? null : 'debit')}
               >
                 <Text style={styles.actionBtnText}>↓ Débit</Text>
@@ -96,7 +105,8 @@ export default function AccountDetailScreen({ route, navigation, accounts, onDeb
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: colors.primary }]}
+                disabled={isSufficiantBalance}
+                style={[styles.actionBtn, { backgroundColor: colors.primary, opacity: isSufficiantBalance ? 0.25 : 1 }]}
                 onPress={() => navigation.navigate('Transfer', { fromAccountId: accountId })}
               >
                 <Text style={styles.actionBtnText}>↗ Virement</Text>
@@ -148,59 +158,60 @@ export default function AccountDetailScreen({ route, navigation, accounts, onDeb
 }
 
 const styles = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: colors.background },
-  balanceBanner:{
+  container: { flex: 1, backgroundColor: colors.background },
+  balanceBanner: {
     backgroundColor: colors.primary,
-    padding:         24,
-    alignItems:      'center',
+    padding: 24,
+    alignItems: 'center',
   },
-  accountName:  { color: 'rgba(255,255,255,0.75)', fontSize: 14 },
-  balance:      { color: '#fff', fontSize: 34, fontWeight: '800', marginTop: 4 },
-  actionsRow:   {
-    flexDirection:  'row',
+  accountName: { color: 'rgba(255,255,255,0.75)', fontSize: 14 },
+  balance: { color: 'white', fontSize: 34, fontWeight: '800', marginTop: 4 },
+  dangerBalance: { color: colors.danger, fontSize: 34, fontWeight: '800', marginTop: 4 },
+  actionsRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    padding:        16,
-    gap:            8,
+    padding: 16,
+    gap: 8,
   },
-  actionBtn:    {
-    flex:           1,
+  actionBtn: {
+    flex: 1,
     paddingVertical: 12,
-    borderRadius:   10,
-    alignItems:     'center',
+    borderRadius: 10,
+    alignItems: 'center',
   },
   actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   form: {
     backgroundColor: colors.card,
-    margin:          16,
-    borderRadius:    12,
-    padding:         16,
-    shadowColor:     '#000',
-    shadowOffset:    { width: 0, height: 2 },
-    shadowOpacity:   0.08,
-    shadowRadius:    4,
-    elevation:       3,
+    margin: 16,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  formTitle:    { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 12 },
+  formTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 12 },
   input: {
-    borderWidth:   1,
-    borderColor:   colors.border,
-    borderRadius:  8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical:   10,
-    fontSize:      14,
-    color:         colors.text,
-    marginBottom:  10,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 10,
     backgroundColor: colors.background,
   },
-  submitBtn:    { borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
-  submitBtnText:{ color: '#fff', fontWeight: '700', fontSize: 15 },
+  submitBtn: { borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
+  submitBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   historyTitle: {
-    fontSize:         13,
-    color:            colors.textLight,
-    paddingHorizontal:16,
-    paddingVertical:  12,
-    textTransform:    'uppercase',
-    letterSpacing:    0.8,
+    fontSize: 13,
+    color: colors.textLight,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   empty: { padding: 20, textAlign: 'center', color: colors.textLight },
 });
